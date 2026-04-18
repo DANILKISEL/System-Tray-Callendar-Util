@@ -1,0 +1,7 @@
+[calendar]
+# Time in seconds to wait between calendar checks
+poll_interval = 30
+
+[event]
+# Time in minutes before an event starts to consider it "soon"
+soon_threshold_minutes = 5
