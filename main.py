@@ -85,7 +85,10 @@ def load_config(config_path="conf.toml"):
         config.setdefault("calendar", {})
         config.setdefault("event", {})
         config["calendar"].setdefault("poll_interval", 30)
+        config.setdefault("link", {})
+        config["link"].setdefault("link", None)
         config["event"].setdefault("soon_threshold_minutes", 5)
+        config["calendar"].setdefault("time_from_check", "7")
         return config
     except FileNotFoundError:
         rumps.alert(title="Config Error", message=f"'{config_path}' not found.")
@@ -93,6 +96,8 @@ def load_config(config_path="conf.toml"):
     except Exception as e:
         rumps.alert(title="Config Error", message=str(e))
         raise SystemExit
+
+days = load_config()["calendar"]["time_from_check"]
 
 
 # ================================================
@@ -157,10 +162,10 @@ def parse_calctl_list_plain(text):
 
 
 def get_upcoming_events():
-    """Fetch upcoming events from the next 7 days using calctl."""
+    """Fetch upcoming events from the next days days using calctl."""
     try:
         today = datetime.now().strftime("%Y-%m-%d")
-        next_week = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+        next_week = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
         result = subprocess.run(
             [CALCTL_PATH, "list", "--from", today, "--to", next_week],
             capture_output=True,
@@ -347,7 +352,7 @@ class CalendarMonitorApp(rumps.App):
                 check=True,
                 timeout=30
             )
-            video_link = result.stdout.strip()
+            video_link = self.config["link"]
 
             if video_link:
                 print(f"Generated video link: {video_link}")

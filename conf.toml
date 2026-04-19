@@ -2,6 +2,12 @@
 # Time in seconds to wait between calendar checks
 poll_interval = 30
 
+# get all events days_until_check from now
+days_until_check = 1
+
 [event]
 # Time in minutes before an event starts to consider it "soon"
 soon_threshold_minutes = 5
+
+[link]
+link = "web.kiselgram.ru/auth/login"
