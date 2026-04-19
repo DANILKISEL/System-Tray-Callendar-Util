@@ -157,7 +157,7 @@ calendar-monitor/
 ├── generate_link.py        # Google Meet link generator
 ├── setup.py                # py2app build configuration
 ├── conf.toml               # User configuration
-├── credentials.json        # Google OAuth credentials (not included)
+├── credentials.json        # Google OAuth credentials 
 └── README.md               # This file
 ```
 
