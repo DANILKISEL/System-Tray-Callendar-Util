@@ -88,7 +88,7 @@ def load_config(config_path="conf.toml"):
         config.setdefault("link", {})
         config["link"].setdefault("link", None)
         config["event"].setdefault("soon_threshold_minutes", 5)
-        config["calendar"].setdefault("time_from_check", "7")
+        config["calendar"].setdefault("time_from_check", 7)
         return config
     except FileNotFoundError:
         rumps.alert(title="Config Error", message=f"'{config_path}' not found.")
@@ -97,7 +97,7 @@ def load_config(config_path="conf.toml"):
         rumps.alert(title="Config Error", message=str(e))
         raise SystemExit
 
-days = load_config()["calendar"]["time_from_check"]
+days = int(load_config()["calendar"]["time_from_check"])
 
 
 # ================================================
@@ -352,7 +352,7 @@ class CalendarMonitorApp(rumps.App):
                 check=True,
                 timeout=30
             )
-            video_link = self.config["link"]
+            video_link = self.config["link"]['link']
 
             if video_link:
                 print(f"Generated video link: {video_link}")

@@ -1,6 +1,6 @@
 [calendar]
 # Time in seconds to wait between calendar checks
-poll_interval = 30
+poll_interval = 5
 
 # get all events days_until_check from now
 days_until_check = 1
