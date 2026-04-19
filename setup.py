@@ -9,6 +9,7 @@ APP = ['main.py']
 DATA_FILES = [
     ('', ['conf.toml']),
     ('', ['generate_link.py']),
+    ('', ['credentials.json']),
     ('', [CALCTL_PATH]),   # Copy calctl into Resources root
 ]
 OPTIONS = {

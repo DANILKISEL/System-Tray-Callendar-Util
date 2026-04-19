@@ -2,7 +2,7 @@
 """
 macOS Calendar Monitor - Menu Bar Edition
 
-Handles both JSON and plain text output from calctl.
+Handles JSON output from calctl (both calendars and events).
 """
 
 import json
@@ -96,9 +96,9 @@ def load_config(config_path="conf.toml"):
 
 
 # ================================================
-# Calendar Interaction (JSON + plain text fallback)
+# Calendar Interaction
 # ================================================
-def parse_calctl_list_output(text):
+def parse_calctl_list_plain(text):
     """
     Fallback parser for plain text output from 'calctl list'.
     Example lines:
@@ -121,7 +121,6 @@ def parse_calctl_list_output(text):
             continue
         match = pattern.match(line)
         if not match:
-            print(f"Could not parse line: {line}")
             continue
 
         date_str = match.group(1)
@@ -135,13 +134,11 @@ def parse_calctl_list_output(text):
             end_dt = datetime.strptime(f"{date_str} {end_time_str}", "%Y-%m-%d %H:%M")
             start_iso = start_dt.isoformat()
             end_iso = end_dt.isoformat()
-            all_day = False
         else:
             start_dt = datetime.strptime(date_str, "%Y-%m-%d")
             end_dt = start_dt + timedelta(days=1)
             start_iso = start_dt.date().isoformat()
             end_iso = end_dt.date().isoformat()
-            all_day = True
 
         event_id = f"{title}-{date_str}-{calendar}".replace(" ", "_")
 
@@ -150,7 +147,6 @@ def parse_calctl_list_output(text):
             'title': title,
             'startDate': start_iso,
             'endDate': end_iso,
-            'all_day': all_day,
             'calendar': calendar,
             'location': '',
             'notes': '',
@@ -179,13 +175,12 @@ def get_upcoming_events():
         try:
             return json.loads(output)
         except json.JSONDecodeError:
-            # Fallback to plain text parser
-            return parse_calctl_list_output(output)
+            return parse_calctl_list_plain(output)
     except subprocess.CalledProcessError as e:
         print(f"Error fetching events: {e.stderr}")
         return []
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Unexpected error in get_upcoming_events: {e}")
         return []
 
 
@@ -206,6 +201,7 @@ def update_event_video_link(event_id, video_link):
 
 
 def extract_video_link_from_event(event):
+    """Look for a video conferencing link in event details."""
     video_domains = ["zoom.us", "meet.google.com", "teams.microsoft.com", "webex.com"]
     fields = [event.get("location", ""), event.get("notes", ""), event.get("url", "")]
     for field in fields:
@@ -274,6 +270,8 @@ class CalendarMonitorApp(rumps.App):
             print("No events or error.")
 
     def _get_writable_calendar_names(self):
+        """Fetch a set of calendar names that are likely writable.
+        Parses JSON output from 'calctl calendars'."""
         if self.writable_calendars_cache is not None:
             return self.writable_calendars_cache
 
@@ -285,15 +283,34 @@ class CalendarMonitorApp(rumps.App):
                 encoding='utf-8',
                 timeout=5
             )
-            lines = result.stdout.splitlines()
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-                lower = line.lower()
-                if any(kw in lower for kw in ["holidays", "birthdays", "subscription"]):
-                    continue
-                writable.add(line)
+            output = result.stdout.strip()
+            if not output:
+                return writable
+
+            # Try JSON first (calctl outputs JSON when stdout is captured)
+            try:
+                calendars = json.loads(output)
+                for cal in calendars:
+                    cal_type = cal.get("type", "").lower()
+                    cal_name = cal.get("title") or cal.get("name", "")
+                    # Skip subscription and birthday calendars
+                    if "subscription" in cal_type or "birthday" in cal_type:
+                        continue
+                    if any(kw in cal_name.lower() for kw in ["holidays", "birthdays"]):
+                        continue
+                    if cal_name:
+                        writable.add(cal_name)
+            except json.JSONDecodeError:
+                # Fallback: plain text (unlikely for calctl calendars)
+                lines = output.splitlines()
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    lower = line.lower()
+                    if any(kw in lower for kw in ["holidays", "birthdays", "subscription"]):
+                        continue
+                    writable.add(line)
         except Exception as e:
             print(f"Error fetching calendars: {e}")
 
@@ -306,12 +323,14 @@ class CalendarMonitorApp(rumps.App):
         event_title = event.get("title", "Untitled")
         calendar_name = event.get("calendar", "")
 
+        # Skip if calendar is known to be read‑only
         writable_calendars = self._get_writable_calendar_names()
         if calendar_name and calendar_name not in writable_calendars:
             print(f"Skipping read‑only calendar event: {event_title} (calendar: {calendar_name})")
             self.update_status(f"Skipped: {event_title[:20]}")
             return
 
+        # Check for existing video link
         existing_link = extract_video_link_from_event(event)
         if existing_link:
             return
@@ -354,6 +373,7 @@ class CalendarMonitorApp(rumps.App):
         now = datetime.now()
 
         for event in events:
+            # Support both JSON (start) and plain fallback (startDate)
             start_str = event.get("start") or event.get("startDate")
             if not start_str:
                 continue
